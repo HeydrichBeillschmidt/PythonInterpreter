@@ -39,12 +39,13 @@ private:
     };
   stack<map<Var, Object>> variable_STACK;
   stack<vector<Var>> parameter_STACK;
-  map<Var, Object> variable_GLOBAL;
+  map<Var, Object> variable_GLOBAL, variable_BUFFER;
   map<string, Python3Parser::FuncdefContext*> func;
 public:
   ~EvalVisitor() override;
   Object Evaluation(const Any &t) const;
   vector<Object> List_Evaluation(const vector<Any> &t) const;
+  Object &get_Content(const Var &t);
 
   virtual antlrcpp::Any visitFile_input(Python3Parser::File_inputContext *ctx) override;
 
