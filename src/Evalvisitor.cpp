@@ -27,6 +27,14 @@ vector<Object> EvalVisitor::List_Evaluation(const vector<Any> &t) const {
     return ans;
 }
 
+Object & EvalVisitor::get_Content(const class EvalVisitor::Var & t) {
+    if (!variable_STACK.empty()) {
+        const auto &c = variable_STACK.top().find(t);
+        if (c!=variable_STACK.top().end()) return c->second;
+    }
+    return variable_GLOBAL[t];
+}
+
 antlrcpp::Any EvalVisitor::visitFile_input(Python3Parser::File_inputContext *ctx) {
     for (const auto &c: ctx->stmt()) visit(c);
     return 0;
@@ -40,7 +48,6 @@ antlrcpp::Any EvalVisitor::visitFuncdef(Python3Parser::FuncdefContext *ctx) {
 
 antlrcpp::Any EvalVisitor::visitParameters(Python3Parser::ParametersContext *ctx) {
     parameter_STACK.push(vector<Var>{});
-    variable_STACK.push(map<Var,Object>{});
     if (ctx->typedargslist()!= nullptr) visit(ctx->typedargslist());
     return 0;
 }
@@ -50,7 +57,7 @@ antlrcpp::Any EvalVisitor::visitTypedargslist(Python3Parser::TypedargslistContex
         const Var c = visit(ctx->tfpdef()[i]).as<Var>();
         parameter_STACK.top().push_back(c);
         if (i >= ir) {
-            variable_STACK.top()[c] = Evaluation(visit(ctx->test()[i-ir]));
+            variable_BUFFER[c] = Evaluation(visit(ctx->test()[i-ir]));
         }
     }
     return 0;
@@ -79,54 +86,15 @@ antlrcpp::Any EvalVisitor::visitSmall_stmt(Python3Parser::Small_stmtContext *ctx
 
 antlrcpp::Any EvalVisitor::visitExpr_stmt(Python3Parser::Expr_stmtContext *ctx) {
     if (ctx->augassign()!=nullptr) {
-        const vector<Any> lexplist = visit(ctx->testlist()[0]).as<vector<Any>>();
-        const vector<Object> rexplist = List_Evaluation(visit(ctx->testlist()[1]).as<vector<Any>>());
-        for (size_t i = 0, it = lexplist.size(); i < it; ++i) {
-            const Var lexp = lexplist[i].as<Var>();
-            const Object rexp = rexplist[i];
-            if (ctx->augassign()->ADD_ASSIGN()!= nullptr) {
-                if (!variable_STACK.empty()) {
-                    const auto &c = variable_STACK.top().find(lexp);
-                    if (c!=variable_STACK.top().end()) {(c->second) += rexp; continue;}
-                }
-                variable_GLOBAL.find(lexp)->second += rexp;
-            }
-            else if (ctx->augassign()->SUB_ASSIGN()!= nullptr) {
-                if (!variable_STACK.empty()) {
-                    const auto &c = variable_STACK.top().find(lexp);
-                    if (c!=variable_STACK.top().end()) {(c->second) -= rexp; continue;}
-                }
-                variable_GLOBAL.find(lexp)->second -= rexp;
-            }
-            else if (ctx->augassign()->MULT_ASSIGN()!= nullptr) {
-                if (!variable_STACK.empty()) {
-                    const auto &c = variable_STACK.top().find(lexp);
-                    if (c!=variable_STACK.top().end()) {(c->second) *= rexp; continue;}
-                }
-                variable_GLOBAL.find(lexp)->second *= rexp;
-            }
-            else if (ctx->augassign()->DIV_ASSIGN()!= nullptr) {
-                if (!variable_STACK.empty()) {
-                    const auto &c = variable_STACK.top().find(lexp);
-                    if (c!=variable_STACK.top().end()) {(c->second).self_devision(rexp); continue;}
-                }
-                variable_GLOBAL.find(lexp)->second.self_devision(rexp);
-            }
-            else if (ctx->augassign()->IDIV_ASSIGN()!= nullptr) {
-                if (!variable_STACK.empty()) {
-                    const auto &c = variable_STACK.top().find(lexp);
-                    if (c!=variable_STACK.top().end()) {(c->second) /= rexp; continue;}
-                }
-                variable_GLOBAL.find(lexp)->second /= rexp;
-            }
-            else {
-                if (!variable_STACK.empty()) {
-                    const auto &c = variable_STACK.top().find(lexp);
-                    if (c!=variable_STACK.top().end()) {(c->second) %= rexp; continue;}
-                }
-                variable_GLOBAL.find(lexp)->second %= rexp;
-            }
-        }
+        const auto op = ctx->augassign()->getText();
+        const Var lexp = visit(ctx->testlist()[0]->test()[0]).as<Var>();
+        const Object rexp = Evaluation(visit(ctx->testlist()[1]->test()[0]));
+        if (op=="+=") {get_Content(lexp) += rexp;}
+        else if (op=="-=") {get_Content(lexp) -= rexp;}
+        else if (op=="*=") {get_Content(lexp) *= rexp;}
+        else if (op=="/=") {get_Content(lexp).self_devision(rexp);}
+        else if (op=="//=") {get_Content(lexp) /= rexp;}
+        else {get_Content(lexp) %= rexp;}
     }
     else {
         if (!ctx->ASSIGN().empty()) {
@@ -352,6 +320,7 @@ antlrcpp::Any EvalVisitor::visitAtom_expr(Python3Parser::Atom_exprContext *ctx) 
         else {
             visit(func[Name]->parameters());
             visit(ctx->trailer());
+            variable_STACK.push(variable_BUFFER); variable_BUFFER.clear();
             vector<Object> t;
             try {
                 visit(func[Name]->suite());
@@ -359,8 +328,8 @@ antlrcpp::Any EvalVisitor::visitAtom_expr(Python3Parser::Atom_exprContext *ctx) 
             catch (EvalVisitor::Return_Exception &re) {
                 if (!re.Return_Nothing) {t = re.Return_List;}
             }
-            parameter_STACK.pop();
-            variable_STACK.pop();
+            parameter_STACK.top().clear(); parameter_STACK.pop();
+            variable_STACK.top().clear(); variable_STACK.pop();
             if (!t.empty()) {
                 if (t.size()==1) {return t.front();}
                 else return t;
@@ -441,11 +410,11 @@ antlrcpp::Any EvalVisitor::visitArglist(Python3Parser::ArglistContext *ctx) {
         Object tmp = visit(ctx->argument()[i]).as<Object>();
         if (ctx->argument()[i]->NAME()==nullptr) {
             Var Name = parameter_STACK.top()[i];
-            variable_STACK.top()[Name] = tmp;
+            variable_BUFFER[Name] = tmp;
         }
         else {
             Var Name = Var(ctx->argument()[i]->NAME()->toString());
-            variable_STACK.top()[Name] = tmp;
+            variable_BUFFER[Name] = tmp;
         }
     }
     return 0;
@@ -453,6 +422,6 @@ antlrcpp::Any EvalVisitor::visitArglist(Python3Parser::ArglistContext *ctx) {
 
 antlrcpp::Any EvalVisitor::visitArgument(Python3Parser::ArgumentContext *ctx) {
     Any tmp = visit(ctx->test());
-    if (tmp.is<Any>()||tmp.is<Object>()||tmp.is<Var>()) return Evaluation(tmp);
+    if (tmp.is<Object>()||tmp.is<Var>()) return Evaluation(tmp);
     else return Object();
 }
