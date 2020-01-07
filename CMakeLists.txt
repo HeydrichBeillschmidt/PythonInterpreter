@@ -33,4 +33,4 @@ file(GLOB antlr4-cpp-src
 add_library (antlr4-cpp-runtime ${antlr4-cpp-src})
 #add_executable(python_interpreter ${src_dir} src/main.cpp)
 add_executable(code ${src_dir} src/main.cpp)
-target_link_libraries(python_interpreter antlr4-cpp-runtime)
+target_link_libraries(code antlr4-cpp-runtime)
