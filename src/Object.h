@@ -7,7 +7,7 @@
 #include "BigInteger.h"
 using namespace std;
 
-enum typeT {NONE, BOOL, INT, FLOAT, STRING};
+enum typeT {BOOL, INT, FLOAT, STRING, NONE};
 
 class Object{
     friend void swap(Object &a, Object &b) {Object c; c = a; a = b; b = c;}
