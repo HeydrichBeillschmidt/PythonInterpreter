@@ -105,8 +105,13 @@ antlrcpp::Any EvalVisitor::visitExpr_stmt(Python3Parser::Expr_stmtContext *ctx) 
                 for (size_t j = 0, jt = rexplist.size(); j < jt; ++j) {
                     const Var lexp = lexplist[j].as<Var>();
                     if (!variable_STACK.empty()) {
-                        variable_STACK.top()[lexp] = rexplist[j];
-                        continue;
+                        const auto &c = variable_STACK.top().find(lexp);
+                        if (c!=variable_STACK.top().end()) variable_STACK.top()[lexp] = rexplist[j];
+                        else {
+                            const auto &p = variable_GLOBAL.find(lexp);
+                            if (p!=variable_GLOBAL.end()) variable_GLOBAL[lexp] = rexplist[j];
+                            else variable_STACK.top()[lexp] = rexplist[j];
+                        }
                     }
                     else {variable_GLOBAL[lexp] = rexplist[j];}
                 }
