@@ -352,7 +352,6 @@ antlrcpp::Any EvalVisitor::visitAtom_expr(Python3Parser::Atom_exprContext *ctx) 
         else {
             visit(func[Name]->parameters());
             visit(ctx->trailer());
-            cout << "trailer visited in depth " << variable_STACK.size() << endl;
             vector<Object> t;
             try {
                 visit(func[Name]->suite());
