@@ -71,7 +71,10 @@ Object Object::self_devision(const Object &oth) {
 }
 
 bool operator==(const Object &a, const Object &b) {
-    if (a.type!=b.type) return false;
+    if (a.type!=b.type) {
+        if (a.type==STRING || b.type==STRING) return false;
+        else return (double(a)==double(b));
+    }
     if (a.type==STRING) return a.data_STRING==b.data_STRING;
     else if (a.type==FLOAT) return a.data_FLOAT==b.data_FLOAT;
     else if (a.type==INT) return a.data_INT==b.data_INT;
