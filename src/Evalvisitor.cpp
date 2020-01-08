@@ -216,26 +216,27 @@ antlrcpp::Any EvalVisitor::visitComparison(Python3Parser::ComparisonContext *ctx
         for (size_t i = 1, it = ctx->arith_expr().size(); i < it; ++i) {
             compare_list.push_back(Evaluation(visit(ctx->arith_expr()[i])));
             const Object &a = compare_list[i-1], &b = compare_list[i];
-            if (ctx->comp_op()[i-1]->EQUALS()!= nullptr) {
-                if (!(a==b)) return Object(false);
+            const auto op = ctx->comp_op()[i-1]->getText();
+            if (op=="==") {
+                if (!(a==b)) {compare_list.clear(); return Object(false);}
             }
-            else if (ctx->comp_op()[i-1]->NOT_EQ_2()!= nullptr) {
-                if (!(a!=b)) return Object(false);
+            else if (op=="!=") {
+                if (!(a!=b)) {compare_list.clear(); return Object(false);}
             }
-            else if (ctx->comp_op()[i-1]->LESS_THAN()!= nullptr) {
-                if (!(a<b)) return Object(false);
+            else if (op=="<") {
+                if (!(a<b)) {compare_list.clear(); return Object(false);}
             }
-            else if (ctx->comp_op()[i-1]->GREATER_THAN()!= nullptr) {
-                if (!(a>b)) return Object(false);
+            else if (op==">") {
+                if (!(a>b)) {compare_list.clear(); return Object(false);}
             }
-            else if (ctx->comp_op()[i-1]->LT_EQ()!= nullptr) {
-                if (!(a<=b)) return Object(false);
+            else if (op=="<=") {
+                if (!(a<=b)) {compare_list.clear(); return Object(false);}
             }
             else {
-                if (!(a>=b)) return Object(false);
+                if (!(a>=b)) {compare_list.clear(); return Object(false);}
             }
         }
-        return Object(true);
+        compare_list.clear(); return Object(true);
     }
 }
 
